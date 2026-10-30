@@ -15,7 +15,7 @@ label{display:block;font-weight:650;margin:10px 0 6px}textarea,input{width:100%;
 <main>
 <header class="hero"><h1>🔎 بررسی Metadata NFT</h1><p>فایل JSON مربوط به NFT خود را وارد کن و فیلدهای مهم آن را بررسی کن.</p></header>
 <section class="panel">
-<h2>۱. وارد کردن Metadata</h2>
+<h2>۱. انتخاب نوع Metadata</h2><label for="modeSelect">چه چیزی را بررسی می‌کنی؟</label><select id="modeSelect" style="width:100%;background:#0b1224;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:12px;font:inherit"><option value="nft">NFT تکی</option><option value="collection">کل مجموعه</option></select><p class="small">می‌توانی Metadata یک NFT یا اطلاعات کل مجموعه را بررسی کنی.</p><h2>۲. وارد کردن Metadata</h2>
 <label for="jsonInput">متن JSON</label>
 <textarea id="jsonInput" spellcheck="false" placeholder='{"name":"My NFT","description":"Description","image":"ipfs://...","attributes":[]}'></textarea>
 <div class="row"><button id="checkBtn">بررسی Metadata</button><button class="secondary" id="exampleBtn">نمایش نمونه</button><button class="secondary" id="clearBtn">پاک کردن</button></div>
@@ -40,13 +40,23 @@ $("loadBtn").addEventListener("click",async()=>{const url=$("urlInput").value.tr
 function showError(message){$("results").innerHTML="<h2>۳. نتیجه بررسی</h2><p class='err'></p>";$("results").querySelector("p").textContent=message;}
 function checkMetadata(raw){let data;try{data=JSON.parse(raw);}catch(e){showError("JSON معتبر نیست. علامت‌ها، ویرگول‌ها و کوتیشن‌ها را بررسی کن. جزئیات: "+e.message);return;}
 if(!data||Array.isArray(data)||typeof data!=="object"){showError("ریشه Metadata باید یک شیء JSON باشد.");return;}
-const checks=[
+const mode=$("modeSelect").value;
+const checks=mode==="collection"?[
+["name","نام مجموعه","string",true],
+["description","توضیحات مجموعه","string",true],
+["image","تصویر پروفایل مجموعه","string",true],
+["cover_image","تصویر کاور مجموعه","string",false],
+["social_links","لینک‌های شبکه‌های اجتماعی","array",false],
+["external_url","لینک خارجی","nullable",false],
+["external_link","لینک خارجی جایگزین","nullable",false],
+["marketplace","بازار (marketplace)","string",false]
+]:[
 ["name","نام NFT","string",true],
 ["description","توضیحات","string",false],
 ["image","لینک تصویر","string",true],
 ["attributes","ویژگی‌ها (attributes)","array",false]
 ];
-let passed=0;const items=checks.map(([key,label,type,required])=>{const exists=Object.prototype.hasOwnProperty.call(data,key);const correct=exists&&(type==="array"?Array.isArray(data[key]):typeof data[key]==="string"&&data[key].trim().length>0);if(correct)passed++;let cls=correct?"ok":required?"err":exists?"err":"hint";let message=correct?(key==="image"&&!/^(https?:|ipfs:|ar:|data:)/i.test(data[key])?"وجود دارد؛ طرح لینک را بررسی کن.":"موجود و قابل قبول است."):required?"ضروری است و وجود ندارد یا نوع آن درست نیست.":exists?"وجود دارد اما نوع/مقدار آن نیاز به بررسی دارد.":"اختیاری است و وارد نشده.";return "<div class='check'><strong class='"+cls+"'>"+(correct?"✓":"•")+" "+label+"</strong><span>"+message+"</span>"+(correct&&key==="image"?"<div class='small'>"+escapeHtml(data[key])+"</div>":"")+"</div>";}).join("");
+let passed=0;const items=checks.map(([key,label,type,required])=>{const exists=Object.prototype.hasOwnProperty.call(data,key);const correct=exists&&(type==="array"?Array.isArray(data[key]):type==="nullable"?(data[key]===null||(typeof data[key]==="string"&&data[key].trim().length>0)):typeof data[key]==="string"&&data[key].trim().length>0);if(correct)passed++;let cls=correct?"ok":required?"err":exists?"err":"hint";let message=correct?(key==="image"&&!/^(https?:|ipfs:|ar:|data:)/i.test(data[key])?"وجود دارد؛ طرح لینک را بررسی کن.":"موجود و قابل قبول است."):required?"ضروری است و وجود ندارد یا نوع آن درست نیست.":exists?"وجود دارد اما نوع/مقدار آن نیاز به بررسی دارد.":"اختیاری است و وارد نشده.";return "<div class='check'><strong class='"+cls+"'>"+(correct?"✓":"•")+" "+label+"</strong><span>"+message+"</span>"+(correct&&key==="image"?"<div class='small'>"+escapeHtml(data[key])+"</div>":"")+"</div>";}).join("");
 let extra="";if(Array.isArray(data.attributes)){const invalid=data.attributes.filter(a=>!a||typeof a!=="object"||!("trait_type" in a)||!("value" in a)).length;extra="<div class='check'><strong class='"+(invalid?"err":"ok")+"'>"+(invalid?"⚠":"✓")+" ساختار attributes</strong><span>"+(invalid?invalid+" ویژگی بدون trait_type یا value پیدا شد.":"ساختار ویژگی‌ها درست به نظر می‌رسد.")+"</span></div>";}
 const image=data.image&&typeof data.image==="string"?data.image:"";
 $("results").innerHTML="<h2>۳. نتیجه بررسی</h2><p class='"+(passed>=2?"ok":"err")+"'>"+passed+" از "+checks.length+" فیلد اصلی قابل قبول است.</p><div class='checks'>"+items+extra+"</div><h3>خلاصه JSON</h3><p class='small'>کلیدهای پیدا شده: <code>"+escapeHtml(Object.keys(data).join(", ")||"هیچ‌کدام")+"</code></p><details><summary>نمایش JSON مرتب‌شده</summary><textarea readonly style='min-height:160px;margin-top:10px'>"+escapeHtml(JSON.stringify(data,null,2))+"</textarea></details>";
